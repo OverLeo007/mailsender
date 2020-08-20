@@ -46,7 +46,7 @@ class Ui_App(object):
 
     def retranslateUi(self, App):
         _translate = QtCore.QCoreApplication.translate
-        App.setWindowTitle(_translate("App", "Form"))
+        App.setWindowTitle(_translate("App", "Mail spammer [by Raez]"))
         self.from_label.setText(_translate("App", "From:"))
         self.startButton.setText(_translate("App", "Start sending"))
         self.log_browser.setHtml(_translate("App", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
