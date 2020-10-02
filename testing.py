@@ -1,17 +1,7 @@
-import requests
-import random as ran
-import urllib.parse
-import string as s
+import smtplib
 
-uencode = urllib.parse.quote
-syms = ''.join(list(s.printable)[:-38])
-rjson = dict()
-rjson['from'] = input('from\n')
-rjson['to'] = input('to\n')
-rjson['subject'] = ''.join([ran.choice(syms) for _ in range(ran.randint(5, 20))])
-rjson['body'] = ''.join([ran.choice(syms) for _ in range(ran.randint(20, 200))])
-url = urllib.parse.urlencode(rjson)
-print(url)
-r = requests.post('http://mailspoofer.herokuapp.com/',
-                  url)
-print(r.status_code)
+smtpObj = smtplib.SMTP('smtp.gmail.com', 587)
+smtpObj.starttls()
+smtpObj.login('Vaxxo9000@gmail.com', 'DuperSuper1337')
+smtpObj.sendmail("Vaxxo9000@gmail.com", "sokolov_lev2003@mail.ru", "go to bed!")
+smtpObj.quit()
