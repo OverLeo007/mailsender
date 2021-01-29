@@ -1,15 +1,17 @@
-import requests
+
 import random
 import urllib.parse
 import os
 from time import sleep
+from spoofer.models.smtpconnection import SMTPConnection
 from PyQt5.QtWidgets import QMainWindow, QApplication
 from PyQt5 import QtGui
 from new_window import Ui_App
 import sys
+import re
 
 uencode = urllib.parse.quote
-issub, ispost, ismails, isfmails = True, True, True, True
+issub, ispost, ismails, isfmails, issmtp, iss_name = True, True, True, True, True, True
 devider = '#'
 
 if 'subjects.txt' not in os.listdir():
@@ -20,6 +22,10 @@ if 'addr.txt' not in os.listdir():
     file = open('addr.txt', 'w').close()
 if 'fromaddr.txt' not in os.listdir():
     file = open('fromaddr.txt', 'w').close()
+if 'smtpaccs.txt' not in os.listdir():
+    file = open('smtpaccs.txt', 'w').close()
+if 'sendernames.txt' not in os.listdir():
+    file = open('sendernames.txt', 'w').close()
 
 with open('subjects.txt') as subs:
     if not subs.readlines():
@@ -32,6 +38,12 @@ with open('addr.txt') as names:
 with open('fromaddr.txt') as fnames:
     if not fnames.readlines():
         isfmails = False
+with open('smtpaccs.txt') as smtps:
+    if not smtps.readlines():
+        issmtp = False
+with open('sendernames.txt') as snms:
+    if not snms.readlines():
+        iss_name = False
 
 
 def resource_path(relative):
@@ -42,12 +54,18 @@ def resource_path(relative):
         return os.path.join(os.path.abspath("."), relative)
 
 
-def msend(sfrom, sto, subj, body):
-    rjson = {'from': sfrom, 'to': sto, 'subject': subj, 'body': body}
-    url = urllib.parse.urlencode(rjson)
-    r = requests.post('http://mailspoofer.herokuapp.com/',
-                      url)
-    return rjson, r.status_code
+def msend(sender, sender_name, recipient, subject, html, smtp):
+    connection = SMTPConnection(smtp['host'], str(smtp['port']))
+    connection.login(smtp['login'], smtp['password'])
+    message = connection.compose_message(
+        sender,
+        sender_name,
+        recipient,
+        subject,
+        html
+    )
+    status = connection.send_mail(message)
+    return status
 
 
 def dir_to_list(dir):
@@ -74,20 +92,27 @@ def make_sy_text(text):
                 string = string.replace(word, f'{devider}{count}')
                 synonims.append(word.split(devider))
                 count += 1
+
         if synonims:
             string = [synonims, string]
-        newtext.append(string)
-    restext = []
+            newtext.append({'syn': synonims, 'str': string[1]})
+        else:
+            newtext.append({'str': string})
 
+    for num, string in enumerate(newtext):
+        sn_syn = re.findall('{(.*?)}', string['str'])
+        if sn_syn:
+            for x, syns in enumerate(sn_syn):
+                sn_syn[x] = syns.split('/')
+            for syns in sn_syn:
+                newtext[num]['str'] = re.sub('{(.*?)}', rand(syns), newtext[num]['str'], count=1)
+    restext = []
     for string in newtext:
 
-        if isinstance(string, list):
-            for ind, syn in enumerate(string[0]):
-
-                string[1] = string[1].replace(f'#{ind}', rand(syn), 1)
-            restext.append(string[1])
-        else:
-            restext.append(string)
+        if string.get('syn', False):
+            for ind, syn in enumerate(string['syn']):
+                string['str'] = string['str'].replace(f'#{ind}', rand(syn), 1)
+        restext.append(string['str'])
 
     restext = '\n'.join(restext)
     return restext
@@ -102,6 +127,10 @@ class Display(QMainWindow, Ui_App):
         self.setWindowIcon(QtGui.QIcon(resource_path('icon.ico')))
 
         self.startButton.clicked.connect(self.main)
+
+        if issmtp is False:
+            self.log_browser.append(
+                'Заполни файлик smtpaccs.txt смтп аккаунтами в формате smtp:port:login:password (каждое с новой строки)')
         if issub is False:
             self.log_browser.append('Заполни файлик subjects.txt темами (каждая с новой строки)')
         if ispost is False:
@@ -110,6 +139,8 @@ class Display(QMainWindow, Ui_App):
             self.log_browser.append('Заполни файлик addr.txt почтами (каждая с новой строки)')
         if isfmails is False:
             self.log_browser.append('Заполни файлик fromaddr.txt почтами с которых отправлять (каждая с новой строки)')
+        if iss_name is False:
+            self.log_browser.append('Заполни файлик sendernames.txt именами отправителя (каждое с новой строки)')
         if issub * ispost * ismails == 0:
             self.log_browser.append('И перезапусти меня')
 
@@ -142,13 +173,22 @@ class Display(QMainWindow, Ui_App):
         except ValueError:
             self.log_browser.append('Введи how many mails цифры блин')
             return
+        with open('sendernames.txt', 'r', encoding='utf-8') as snames:
+            sendernames_list = map(lambda x: x.replace('\n', ''), snames.readlines())
+        with open('smtpaccs.txt', 'r', encoding='utf-8') as smtps:
+            smtp_list = ''
         with open('addr.txt', 'r', encoding='utf-8') as mails:
             mail_list = list(map(lambda x: x.replace('\n', ''), mails.readlines()))
         with open('subjects.txt', 'r', encoding='utf-8') as subjs:
             subj_list = list(map(lambda x: x.replace('\n', ''), subjs.readlines()))
         with open('fromaddr.txt', 'r', encoding='utf-8') as fmails:
             fmail_list = list(map(lambda x: x.replace('\n', ''), fmails.readlines()))
+        with open('smtpaccs.txt', 'r', encoding='utf-8') as smtps:
+            to_dict = lambda x: {'host': x[0], 'port': x[1], 'login': x[2], 'password': x[3]}
+            smtp_list = iter([to_dict(smtp.split(':')) for smtp in
+                         list(map(lambda x: x.replace('\n', ''), smtps.readlines()))])
         post_list = dir_to_list('posts')
+        # print(post_list)
 
         for fmail in fmail_list:
             self.scount = 0
@@ -156,11 +196,13 @@ class Display(QMainWindow, Ui_App):
             if send_len >= list_len:
                 send_len = list_len
             self.log_browser.append(f'Начинаю отправку с {fmail}')
+            sender_name = next(sendernames_list)
+            c_smtp = next(smtp_list)
             QApplication.processEvents()
             for i in range(send_len):
                 mail = mail_list[0]
                 QApplication.processEvents()
-                json, stat = msend(fmail, mail, rand(subj_list), make_sy_text(rand(post_list)))
+                stat = msend(fmail, sender_name, mail, rand(subj_list), make_sy_text(rand(post_list)), c_smtp)
                 if stat == 200:
                     self.log_browser.append(f'Отправленно на {mail} статус заебись')
                     self.scount += 1
@@ -179,6 +221,7 @@ class Display(QMainWindow, Ui_App):
             sleep(fmail_delay_time)
 
 
+#
 app = QApplication(sys.argv)
 ex = Display()
 ex.show()

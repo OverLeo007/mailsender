@@ -39,3 +39,5 @@ urllib3==1.25.10
 whichcraft==0.6.1
 zope.event==4.4
 zope.interface==5.1.0
+
+sendgrid~=6.4.7
